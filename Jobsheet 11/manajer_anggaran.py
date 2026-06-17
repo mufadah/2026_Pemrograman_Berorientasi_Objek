@@ -9,26 +9,26 @@ from model import Transaksi
 import database
 
 class AnggaranHarian:
-    \"\"\"Mengelola logika bisnis pengeluaran harian (Repository Pattern).\"\"\"
+    """Mengelola logika bisnis pengeluaran harian (Repository Pattern)."""
     _db_setup_done = False  # Flag untuk memastikan setup DB hanya dicek sekali
     
     def __init__(self):
-        \"\"\"Inisialisasi manajer anggaran dan setup database jika belum.\"\"\"
+        """Inisialisasi manajer anggaran dan setup database jika belum."""
         if not AnggaranHarian._db_setup_done:
-            print(\"[AnggaranHarian] Melakukan pengecekan/setup database awal...\")
+            print("[AnggaranHarian] Melakukan pengecekan/setup database awal...")
             if database.setup_database_initial():
                 AnggaranHarian._db_setup_done = True
-                print(\"[AnggaranHarian] Database siap.\")
+                print("[AnggaranHarian] Database siap.")
             else:
-                print(\"[AnggaranHarian] KRITICAL: Setup database awal GAGAL!\")
+                print("[AnggaranHarian] KRITICAL: Setup database awal GAGAL!")
     
     def tambah_transaksi(self, transaksi: Transaksi) -> bool:
-        \"\"\"Menambahkan transaksi baru ke database.\"\"\"
+        """Menambahkan transaksi baru ke database."""
         if not isinstance(transaksi, Transaksi) or transaksi.jumlah <= 0:
             return False
         
-        sql = \"INSERT INTO transaksi (deskripsi, jumlah, kategori, tanggal) VALUES (?, ?, ?, ?)\"
-        params = (transaksi.deskripsi, transaksi.jumlah, transaksi.kategori, transaksi.tanggal.strftime(\"%Y-%m-%d\"))
+        sql = "INSERT INTO transaksi (deskripsi, jumlah, kategori, tanggal) VALUES (?, ?, ?, ?)"
+        params = (transaksi.deskripsi, transaksi.jumlah, transaksi.kategori, transaksi.tanggal.strftime("%Y-%m-%d"))
         
         last_id = database.execute_query(sql, params)
         if last_id is not None:
@@ -37,8 +37,8 @@ class AnggaranHarian:
         return False
     
     def get_semua_transaksi_obj(self) -> list:
-        \"\"\"Mengambil semua transaksi sebagai list objek Transaksi.\"\"\"
-        sql = \"SELECT id, deskripsi, jumlah, kategori, tanggal FROM transaksi ORDER BY tanggal DESC, id DESC\"
+        """Mengambil semua transaksi sebagai list objek Transaksi."""
+        sql = "SELECT id, deskripsi, jumlah, kategori, tanggal FROM transaksi ORDER BY tanggal DESC, id DESC"
         rows = database.fetch_query(sql, fetch_all=True)
         
         transaksi_list = []
@@ -56,15 +56,15 @@ class AnggaranHarian:
         return transaksi_list
     
     def get_dataframe_transaksi(self, filter_tanggal: datetime.date = None) -> pd.DataFrame:
-        \"\"\"Mengambil data transaksi sebagai Pandas DataFrame dengan formatting Rupiah.\"\"\"
-        query = \"SELECT id, tanggal, kategori, deskripsi, jumlah FROM transaksi\"
+        """Mengambil data transaksi sebagai Pandas DataFrame dengan formatting Rupiah."""
+        query = "SELECT id, tanggal, kategori, deskripsi, jumlah FROM transaksi"
         params = None
         
         if filter_tanggal:
-            query += \" WHERE tanggal = ?\"
-            params = (filter_tanggal.strftime(\"%Y-%m-%d\"),)
+            query += " WHERE tanggal = ?"
+            params = (filter_tanggal.strftime("%Y-%m-%d"),)
         
-        query += \" ORDER BY tanggal DESC, id DESC\"
+        query += " ORDER BY tanggal DESC, id DESC"
         df = database.get_dataframe(query, params=params)
         
         if not df.empty:
@@ -72,20 +72,20 @@ class AnggaranHarian:
                 locale.setlocale(locale.LC_ALL, 'id_ID.UTF-8')
                 df['Jumlah (Rp)'] = df['jumlah'].map(lambda x: locale.currency(x or 0, grouping=True, symbol='Rp ')[:-3])
             except:
-                df['Jumlah (Rp)'] = df['jumlah'].map(lambda x: f\"Rp {x or 0:,.0f}\".replace(\",\", \".\"))
+                df['Jumlah (Rp)'] = df['jumlah'].map(lambda x: f"Rp {x or 0:,.0f}".replace(",", "."))
             
             df = df[['id', 'tanggal', 'kategori', 'deskripsi', 'Jumlah (Rp)']]
         
         return df
     
     def hitung_total_pengeluaran(self, tanggal: datetime.date = None) -> float:
-        \"\"\"Menghitung total pengeluaran untuk tanggal tertentu atau semua.\"\"\"
-        sql = \"SELECT SUM(jumlah) FROM transaksi\"
+        """Menghitung total pengeluaran untuk tanggal tertentu atau semua."""
+        sql = "SELECT SUM(jumlah) FROM transaksi"
         params = None
         
         if tanggal:
-            sql += \" WHERE tanggal = ?\"
-            params = (tanggal.strftime(\"%Y-%m-%d\"),)
+            sql += " WHERE tanggal = ?"
+            params = (tanggal.strftime("%Y-%m-%d"),)
         
         result = database.fetch_query(sql, params=params, fetch_all=False)
         
@@ -94,21 +94,21 @@ class AnggaranHarian:
         return 0.0
     
     def get_pengeluaran_per_kategori(self, tanggal: datetime.date = None) -> dict:
-        \"\"\"Menghitung pengeluaran per kategori.\"\"\"
+        """Menghitung pengeluaran per kategori."""
         hasil = {}
-        sql = \"SELECT kategori, SUM(jumlah) FROM transaksi\"
+        sql = "SELECT kategori, SUM(jumlah) FROM transaksi"
         params = []
         
         if tanggal:
-            sql += \" WHERE tanggal = ?\"
-            params.append(tanggal.strftime(\"%Y-%m-%d\"))
+            sql += " WHERE tanggal = ?"
+            params.append(tanggal.strftime("%Y-%m-%d"))
         
-        sql += \" GROUP BY kategori HAVING SUM(jumlah) > 0 ORDER BY SUM(jumlah) DESC\"
+        sql += " GROUP BY kategori HAVING SUM(jumlah) > 0 ORDER BY SUM(jumlah) DESC"
         rows = database.fetch_query(sql, params=tuple(params) if params else None, fetch_all=True)
         
         if rows:
             for row in rows:
-                kategori = row['kategori'] if row['kategori'] else \"Lainnya\"
+                kategori = row['kategori'] if row['kategori'] else "Lainnya"
                 jumlah = float(row[1]) if row[1] is not None else 0.0
                 hasil[kategori] = jumlah
         
@@ -116,11 +116,11 @@ class AnggaranHarian:
     
     # PENUGASAN: Tambahkan metode hapus_transaksi
     def hapus_transaksi(self, id_transaksi: int) -> bool:
-        \"\"\"Menghapus transaksi berdasarkan ID.\"\"\"
+        """Menghapus transaksi berdasarkan ID."""
         if id_transaksi is None or id_transaksi <= 0:
             return False
         
-        sql = \"DELETE FROM transaksi WHERE id = ?\"
+        sql = "DELETE FROM transaksi WHERE id = ?"
         params = (id_transaksi,)
         
         result = database.execute_query(sql, params)

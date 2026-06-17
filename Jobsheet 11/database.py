@@ -98,7 +98,7 @@ def setup_database_initial():
         );"""
         cursor.execute(sql_create_table)
         conn.commit()
-        print("  ✓ Tabel 'transaksi' siap.")
+        print("  [OK] Tabel 'transaksi' siap.")
         return True
     except sqlite3.Error as e:
         print(f"Error SQLite saat setup tabel: {e}")

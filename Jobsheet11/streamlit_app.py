@@ -153,36 +153,78 @@ def halaman_ringkasan(anggaran: AnggaranHarian):
 def halaman_hapus_transaksi(anggaran: AnggaranHarian):
     st.header("🗑️  Hapus Transaksi")
     
-    # Ambil semua transaksi
-    transaksi_list = anggaran.get_semua_transaksi_obj()
+    # Ambil dataframe transaksi
+    df_hapus = anggaran.get_dataframe_transaksi()
     
-    if not transaksi_list:
+    if df_hapus is None or df_hapus.empty:
         st.info("Tidak ada transaksi untuk dihapus.")
         return
     
-    # Tampilkan daftar transaksi
     st.subheader("Pilih Transaksi untuk Dihapus")
-    df_hapus = anggaran.get_dataframe_transaksi()
-    st.dataframe(df_hapus, use_container_width=True, hide_index=True)
+    st.write("Centang kotak pada kolom **Pilih** untuk menandai transaksi yang ingin dihapus.")
     
-    # Input ID transaksi
-    col1, col2 = st.columns([3, 1])
-    with col1:
-        id_transaksi = st.number_input(
-            "Masukkan ID Transaksi yang ingin dihapus:",
-            min_value=1,
-            step=1,
-            help="Lihat kolom 'id' pada tabel di atas"
-        )
+    df_hapus.insert(0, "Pilih", False)
+    kolom_readonly = [col for col in df_hapus.columns if col != "Pilih"]
     
-    with col2:
-        if st.button("🗑️  Hapus", use_container_width=True):
-            if anggaran.hapus_transaksi(int(id_transaksi)):
-                st.success(f"✓ Transaksi ID {id_transaksi} berhasil dihapus!")
-                st.cache_data.clear()
+    edited_df = st.data_editor(
+        df_hapus,
+        hide_index=True,
+        column_config={
+            "Pilih": st.column_config.CheckboxColumn(
+                "Pilih",
+                help="Centang untuk menghapus transaksi",
+                default=False,
+            )
+        },
+        disabled=kolom_readonly,
+        use_container_width=True,
+        key="editor_hapus_transaksi"
+    )
+    
+    transaksi_terpilih = edited_df[edited_df["Pilih"] == True]
+    
+    # --- INISIALISASI STATE KONFIRMASI ---
+    if 'tampilkan_konfirmasi' not in st.session_state:
+        st.session_state.tampilkan_konfirmasi = False
+
+    # Tombol pemicu awal
+    if st.button("Hapus Transaksi Terpilih"):
+        if not transaksi_terpilih.empty:
+            # Ubah state untuk menampilkan area konfirmasi
+            st.session_state.tampilkan_konfirmasi = True
+        else:
+            st.warning("⚠️ Silakan centang minimal satu transaksi terlebih dahulu.", icon="⚠️")
+
+    # --- AREA KONFIRMASI (Muncul jika state True) ---
+    if st.session_state.tampilkan_konfirmasi:
+        jumlah_dipilih = len(transaksi_terpilih)
+        st.warning(f"Apakah Anda yakin ingin menghapus **{jumlah_dipilih} transaksi** yang dipilih? Tindakan ini tidak dapat dibatalkan.", icon="⚠️")
+        
+        # Buat dua kolom untuk tombol Ya dan Batal agar bersebelahan
+        col_yakin, col_batal = st.columns([1, 4]) 
+        
+        with col_yakin:
+            if st.button("✅ Ya, Yakin", type="primary", key="btn_yakin"):
+                jumlah_sukses = 0
+                for id_tx in transaksi_terpilih["id"]:
+                    if anggaran.hapus_transaksi(int(id_tx)):
+                        jumlah_sukses += 1
+                
+                # Reset state konfirmasi setelah selesai
+                st.session_state.tampilkan_konfirmasi = False
+                
+                if jumlah_sukses > 0:
+                    st.success(f"✓ {jumlah_sukses} transaksi berhasil dihapus!")
+                    st.cache_data.clear()
+                    st.rerun()
+                else:
+                    st.error("✗ Gagal menghapus transaksi yang dipilih.")
+                    
+        with col_batal:
+            if st.button("❌ Batal", key="btn_batal"):
+                # Reset state konfirmasi jika batal
+                st.session_state.tampilkan_konfirmasi = False
                 st.rerun()
-            else:
-                st.error(f"✗ Gagal menghapus transaksi ID {id_transaksi}")
 
 # --- Fungsi Utama Aplikasi Streamlit ---
 def main():
